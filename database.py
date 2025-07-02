@@ -29,14 +29,17 @@ class DataAccessLayer:
         
         self.mongo_uri = os.getenv("MONGO_URI")
         self.db_name = db_name or os.getenv("MONGO_DB_NAME")
+        if not self.mongo_uri or not self.db_name:
+            raise ValueError("MONGO_URI and MONGO_DB_NAME must be set in .env file")
+
         self.client: Optional[AsyncIOMotorClient] = None
         self.db = None
         
         key = os.getenv("ENCRYPTION_KEY")
         if not key:
             key = Fernet.generate_key().decode()
-            # This is tricky in a real app, better to set it explicitly in .env
-            logger.warning(f"Generated new ENCRYPTION_KEY. Set this in your .env file: ENCRYPTION_KEY={key}")
+            logger.warning("ENCRYPTION_KEY not found in .env. A temporary key has been generated.")
+            logger.warning(f"Set this in your .env file to avoid data loss on restart: ENCRYPTION_KEY={key}")
         self.cipher = Fernet(key.encode())
     
     async def connect(self):
@@ -52,8 +55,9 @@ class DataAccessLayer:
             self.client = None
             logger.info("Database connection closed")
             
-    async def find(self, collection: str, query: dict = {}, sort: Optional[list] = None, limit: int = 100) -> List[dict]:
+    async def find(self, collection: str, query: dict = {}, sort: Optional[list] = None, limit: int = 0) -> List[dict]:
         await self.connect()
+        # A limit of 0 means no limit
         cursor = self.db[collection].find(query).limit(limit)
         if sort:
             cursor = cursor.sort(sort)
@@ -95,15 +99,19 @@ class DataAccessLayer:
 
     async def replace_collection(self, collection: str, data: list):
         await self.connect()
-        await self.db[collection].delete_many({})
-        if data:
-            await self.db[collection].insert_many(data)
+        # This is a transactional operation for atomic replacement
+        async with await self.client.start_session() as s:
+            async with s.start_transaction():
+                await self.db[collection].delete_many({}, session=s)
+                if data:
+                    await self.db[collection].insert_many(data, session=s)
 
     async def _initialize_indexes(self):
         try:
             await self.db.users.create_index("username", unique=True)
             await self.db.suggestions.create_index([("votes", DESCENDING)])
-            await self.db.suggestions.create_index("yt_id", unique=True)
+            await self.db.suggestions.create_index("yt_id", unique=True, sparse=True)
+            await self.db.playlist.create_index("order")
             logger.info("Database indexes checked/initialized.")
         except Exception as e:
             logger.error(f"Index initialization failed: {e}")

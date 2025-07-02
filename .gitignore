@@ -57,9 +57,10 @@ coverage.xml
 # dotenv
 .env
 .env.*
+.env.*.local
 
 # mypy
-.mypy_cache/
+.my_cache/
 .dmypy.json
 dmypy.json
 
@@ -69,4 +70,6 @@ dmypy.json
 # VS Code
 .vscode/
 
+# Project-specific
 music_cache/
+data/

@@ -16,7 +16,9 @@
             <!-- Playlist Management -->
             <div class="card">
                 <h2>Master Playlist</h2>
-                <ul id="playlist" class="sortable-list"></ul>
+                <ul id="playlist" class="sortable-list">
+                    <!-- JS will populate this -->
+                </ul>
                 <button id="save-playlist">Save Playlist Order</button>
             </div>
 
@@ -38,7 +40,8 @@
             </div>
         </div>
     </div>
-    <!-- Include SortableJS for drag-and-drop -->
+    
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>

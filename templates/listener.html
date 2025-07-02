@@ -15,17 +15,17 @@
         <main>
             <div class="player-card">
                 <h2>Live Stream</h2>
-                <div id="now-playing">Now Playing: Loading...</div>
+                <div id="now-playing">Now Playing: <span>Loading...</span></div>
                 <audio controls autoplay src="/stream.mp3">
                     Your browser does not support the audio element.
                 </audio>
             </div>
 
             <div class="suggestions-card">
-                <h2>Suggest a Song for Today!</h2>
-                <p>The winning song will be added to the official playlist.</p>
+                <h2>Suggest a Song!</h2>
+                <p>The winning song will be added to the official playlist. Paste a YouTube link below.</p>
                 <form id="suggestion-form">
-                    <input type="text" id="suggestion-input" placeholder="Enter song name or YouTube link" required>
+                    <input type="text" id="suggestion-input" placeholder="Enter YouTube link" required>
                     <button type="submit">Suggest</button>
                 </form>
                 <hr>
@@ -36,6 +36,7 @@
             </div>
         </main>
     </div>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='js/listener.js') }}"></script>
 </body>
 </html>

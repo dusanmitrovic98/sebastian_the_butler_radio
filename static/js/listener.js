@@ -1,15 +1,24 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const socket = io();
+
+    // Element References
     const suggestionForm = document.getElementById('suggestion-form');
     const suggestionInput = document.getElementById('suggestion-input');
     const suggestionsList = document.getElementById('suggestions-list');
+    const nowPlayingSpan = document.querySelector('#now-playing span');
 
-    async function fetchSuggestions() {
-        const response = await fetch('/api/suggestions');
-        const suggestions = await response.json();
-        renderSuggestions(suggestions);
-    }
+    // --- Data Fetching and Rendering ---
+    const fetchSuggestions = async () => {
+        try {
+            const response = await fetch('/api/suggestions');
+            const suggestions = await response.json();
+            renderSuggestions(suggestions);
+        } catch (error) {
+            console.error('Failed to fetch suggestions:', error);
+        }
+    };
 
-    function renderSuggestions(suggestions) {
+    const renderSuggestions = (suggestions) => {
         suggestionsList.innerHTML = '';
         suggestions.forEach(song => {
             const li = document.createElement('li');
@@ -19,14 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             suggestionsList.appendChild(li);
         });
-    }
+    };
 
+    // --- Event Listeners ---
     suggestionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        // A very basic regex to find a YouTube ID from a URL
-        const ytIdMatch = suggestionInput.value.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
-        if (!ytIdMatch) {
-            alert("Please provide a valid YouTube link for now.");
+        // Regex to find a YouTube ID in a URL or as a standalone string
+        const ytIdMatch = suggestionInput.value.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|^(?!www\.)[a-zA-Z0-9_-]{11}$)([a-zA-Z0-9_-]{11})/);
+        
+        if (!ytIdMatch || !ytIdMatch[1]) {
+            alert("Please provide a valid YouTube link or video ID.");
             return;
         }
         const yt_id = ytIdMatch[1];
@@ -34,30 +45,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const response = await fetch('/api/suggestions', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ yt_id: yt_id, title: `Song from ${yt_id}` }) // Title can be improved
+            body: JSON.stringify({ yt_id: yt_id })
         });
 
         if (response.ok) {
             suggestionInput.value = '';
-            fetchSuggestions();
+            // The socket event will handle the re-render
         } else {
-            const error = await response.text();
-            alert(`Error: ${error}`);
+            alert(`Error: ${await response.text()}`);
         }
     });
 
     suggestionsList.addEventListener('click', async (e) => {
         if (e.target.classList.contains('vote-btn')) {
             const id = e.target.dataset.id;
+            e.target.disabled = true; // Prevent double-clicking
             const response = await fetch(`/api/suggestions/${id}/vote`, { method: 'POST' });
-            if (response.ok) {
-                fetchSuggestions();
-            } else {
+            if (!response.ok) {
                 alert(await response.text());
+                e.target.disabled = false;
             }
+             // The socket event will handle the re-render
         }
     });
 
-    // Initial load
+    // --- Socket.IO Listeners ---
+    socket.on('now_playing', (songInfo) => {
+        nowPlayingSpan.textContent = songInfo.title;
+        document.title = `${songInfo.title} - Sebastian's Radio`;
+    });
+
+    socket.on('suggestions_updated', (suggestions) => {
+        console.log('Suggestions updated via WebSocket.');
+        renderSuggestions(suggestions);
+    });
+
+    // --- Initial Load ---
     fetchSuggestions();
 });
