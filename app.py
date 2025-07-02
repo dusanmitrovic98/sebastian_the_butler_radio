@@ -160,10 +160,20 @@ async def promote_winner():
 
 
 if __name__ == '__main__':
-    # This block is now only for one-time setup when the script is run directly.
-    # The web server will be started by Gunicorn, not here.
+    # This block is now used for one-time setup and for local development on Windows.
+    # The production server (Render) will use the Gunicorn command from the Procfile.
+    
     print("Performing initial setup...")
     asyncio.run(create_initial_admin_user())
-    print("Setup complete. To run the server, use the 'gunicorn' command.")
-    print("Example: gunicorn --worker-class gevent --workers 1 --bind 0.0.0.0:5000 app:app")
-    print("web: gunicorn --worker-class gevent -w 1 --bind 0.0.0.0:$PORT app:app")
+    print("Setup complete.")
+    
+    # Note: If you implement the full audio_engine.py, you would start it here:
+    # print("Starting audio engine thread...")
+    # audio_engine = AudioEngine(broadcaster)
+    # audio_engine.start()
+
+    print("\n>>> Starting local development server <<<")
+    print(">>> Production deployment on Render will use Gunicorn from the Procfile. <<<")
+    # This command will be used when you run `python app.py` on your Windows machine.
+    port = int(os.getenv("PORT", 5000))
+    socketio.run(app, host='0.0.0.0', port=port, debug=True, use_reloader=False)
