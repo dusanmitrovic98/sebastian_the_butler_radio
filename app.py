@@ -12,7 +12,10 @@ from youtube_handler import search_youtube, download_audio
 load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
-socketio = SocketIO(app, async_mode='threading')
+
+# --- THE CRITICAL FIX IS HERE ---
+# Change 'threading' to 'eventlet' to unify the concurrency model
+socketio = SocketIO(app, async_mode='eventlet')
 
 # --- Authentication ---
 def hash_password(password):
@@ -31,8 +34,6 @@ async def create_initial_admin_user():
         hashed_password = hash_password(admin_pass)
         await db.create('users', {'username': admin_user, 'password': hashed_password})
         print(f"Created initial admin user: {admin_user}")
-
-# --- THE DECORATOR @app.before_first_request IS REMOVED FROM HERE ---
 
 def is_logged_in():
     return session.get('logged_in')
@@ -151,7 +152,6 @@ async def promote_winner():
         "yt_id": winner['yt_id'],
         "filepath": filepath
     }
-    # Using $push to add to the playlist array inside a single document
     await db.update('playlist', {'name': 'master'}, {'$push': {'songs': playlist_entry}}, upsert=True)
     
     await db.delete_many('suggestions', {})
@@ -160,20 +160,15 @@ async def promote_winner():
 
 
 if __name__ == '__main__':
-    # This block is now used for one-time setup and for local development on Windows.
+    # This block is now used for one-time setup and for local development.
     # The production server (Render) will use the Gunicorn command from the Procfile.
     
     print("Performing initial setup...")
     asyncio.run(create_initial_admin_user())
     print("Setup complete.")
-    
-    # Note: If you implement the full audio_engine.py, you would start it here:
-    # print("Starting audio engine thread...")
-    # audio_engine = AudioEngine(broadcaster)
-    # audio_engine.start()
 
     print("\n>>> Starting local development server <<<")
     print(">>> Production deployment on Render will use Gunicorn from the Procfile. <<<")
     # This command will be used when you run `python app.py` on your Windows machine.
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.getenv('PORT', 5000))
     socketio.run(app, host='0.0.0.0', port=port, debug=True, use_reloader=False)

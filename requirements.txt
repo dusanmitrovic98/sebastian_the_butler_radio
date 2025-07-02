@@ -13,6 +13,7 @@ colorama==0.4.6
 cryptography==45.0.4
 dnspython==2.7.0
 edge-tts==7.0.2
+eventlet==0.40.1
 Flask==3.1.1
 Flask-SocketIO==5.5.1
 frozenlist==1.7.0
