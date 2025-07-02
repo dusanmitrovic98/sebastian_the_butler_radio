@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DJ Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header>
+            <h1>DJ Dashboard</h1>
+            <a href="/logout">Logout</a>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Playlist Management -->
+            <div class="card">
+                <h2>Master Playlist</h2>
+                <ul id="playlist" class="sortable-list"></ul>
+                <button id="save-playlist">Save Playlist Order</button>
+            </div>
+
+            <!-- YouTube Search -->
+            <div class="card">
+                <h2>Add from YouTube</h2>
+                <form id="search-form">
+                    <input type="text" id="search-input" placeholder="Search for a song...">
+                    <button type="submit">Search</button>
+                </form>
+                <ul id="search-results" class="result-list"></ul>
+            </div>
+
+            <!-- Suggestions Management -->
+            <div class="card">
+                <h2>Community Suggestions</h2>
+                <ul id="suggestions-list-dj" class="result-list"></ul>
+                <button id="promote-winner-btn">Promote Top Song to Playlist</button>
+            </div>
+        </div>
+    </div>
+    <!-- Include SortableJS for drag-and-drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

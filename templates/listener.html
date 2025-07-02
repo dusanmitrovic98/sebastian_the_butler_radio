@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sebastian's Radio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container listener-container">
+        <header>
+            <h1>Sebastian's Radio</h1>
+            <p>Broadcasting live from our cozy house. Your personal butler, at your service.</p>
+        </header>
+
+        <main>
+            <div class="player-card">
+                <h2>Live Stream</h2>
+                <div id="now-playing">Now Playing: Loading...</div>
+                <audio controls autoplay src="/stream.mp3">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+
+            <div class="suggestions-card">
+                <h2>Suggest a Song for Today!</h2>
+                <p>The winning song will be added to the official playlist.</p>
+                <form id="suggestion-form">
+                    <input type="text" id="suggestion-input" placeholder="Enter song name or YouTube link" required>
+                    <button type="submit">Suggest</button>
+                </form>
+                <hr>
+                <h3>Today's Suggestions</h3>
+                <ul id="suggestions-list">
+                    <!-- Suggestions will be loaded here by JS -->
+                </ul>
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/listener.js') }}"></script>
+</body>
+</html>
