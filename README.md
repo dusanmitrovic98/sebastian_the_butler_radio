@@ -1,27 +1,39 @@
-# Real-Time TTS Audio Streamer
+# Sebastian's Radio - A Community-Driven YouTube Radio Station
 
-This project is a web application that generates Text-to-Speech (TTS) audio in real-time and streams it to any connected web browser.
-
-You can type text into the console where the server is running, and the server will speak it. All connected clients will hear the audio simultaneously.
+This project is a web application that runs a live, 24/7 internet radio station powered by YouTube. It features a DJ dashboard for managing the playlist and a public listener page where users can listen to the live stream, suggest songs, and vote for their favorites. The application is built to run on both Windows and Linux.
 
 ## Features
 
--   **Real-time Streaming**: Uses Microsoft's `edge-tts` for high-quality neural voices.
--   **Live Broadcasting**: Multiple clients can connect and listen to the same audio stream.
--   **Catch-up Buffer**: New clients who join mid-stream will immediately hear the last few seconds of audio, ensuring a seamless experience.
--   **Thread-Safe Architecture**: Uses separate threads for input, TTS generation, and web serving.
+-   **Live Audio Streaming**: Continuous audio stream accessible to all connected clients.
+-   **Cross-Platform**: Runs on both Windows and Linux without modification.
+-   **DJ Dashboard**: A password-protected area (`/dashboard`) for playlist and suggestion management.
+-   **Listener Engagement**: Public page (`/`) for listening, suggesting, and voting on songs.
+-   **Real-time Updates**: Uses WebSockets (`Flask-SocketIO`) for instant client updates.
+-   **Persistent State**: Uses MongoDB to store user credentials, playlists, and suggestions.
+-   **Audio Caching**: Caches audio from YouTube to ensure smooth playback.
 
 ## Prerequisites
 
 -   Python 3.8+
 -   `pip`
--   An internet connection for the TTS service.
+-   MongoDB Server (local or a cloud instance like MongoDB Atlas)
+-   **`ffmpeg`**: This is a required external dependency for audio processing.
 
 ## Setup & Installation
 
-1.  **Clone the repository or download the files.**
+1.  **Install `ffmpeg`:**
+    *   **On Linux (Debian/Ubuntu):**
+        ```bash
+        sudo apt update && sudo apt install ffmpeg
+        ```
+    *   **On Windows:**
+        1.  Download a release build from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (the `ffmpeg-release-essentials.zip` is recommended).
+        2.  Extract the zip file to a permanent location (e.g., `C:\ffmpeg`).
+        3.  Add the `bin` directory inside that folder (e.g., `C:\ffmpeg\bin`) to your system's `PATH` environment variable.
 
-2.  **Create and activate a virtual environment (recommended):**
+2.  **Clone the repository.**
+
+3.  **Create and activate a virtual environment:**
     ```bash
     # For Linux/macOS
     python3 -m venv venv
@@ -32,23 +44,29 @@ You can type text into the console where the server is running, and the server w
     .\venv\Scripts\activate
     ```
 
-3.  **Install the required Python packages:**
+4.  **Install the required Python packages:**
     ```bash
     pip install -r requirements.txt
     ```
 
+5.  **Configure Environment Variables:**
+    Create a file named `.env` in the root directory and add the following:
+    ```env
+    # Flask & Security
+    SECRET_KEY=a_very_secret_and_random_string
+    
+    # MongoDB Connection
+    MONGO_URI=mongodb://localhost:27017/
+    MONGO_DB_NAME=radio_station
+
+    # Initial Admin/DJ Credentials
+    DJ_USERNAME=admin
+    DJ_PASSWORD=your_secure_password
+    ```
+
 ## How to Run
 
-1.  **Start the server:**
-    ```bash
-    python app.py
-    ```
-    You will see log messages indicating that the server and its worker threads have started.
+The application is now started with a single, universal command on any operating system.
 
-2.  **Open a web browser** and navigate to:
-    [http://127.0.0.1:5000](http://127.0.0.1:5000)
-
-    The audio player should appear and start playing silence (or any queued audio).
-
-3.  **Generate Speech:**
-    Go back to the terminal where you ran `python app.py`. Type any text and press **Enter**. The server will generate the audio and stream it to your browser.
+```bash
+python app.py

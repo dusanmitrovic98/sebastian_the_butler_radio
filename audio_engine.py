@@ -5,12 +5,15 @@ import asyncio
 import logging
 from pydub import AudioSegment
 
+from async_database import DataAccessLayer # Import from the renamed async file
+
 class AudioEngine(threading.Thread):
-    def __init__(self, broadcaster, db_instance, now_playing_queue):
+    def __init__(self, broadcaster, now_playing_queue):
         super().__init__()
         self.daemon = True
         self.broadcaster = broadcaster
-        self.db = db_instance
+        # Create a private instance of the Async DataAccessLayer for this thread
+        self.db = DataAccessLayer()
         self.now_playing_queue = now_playing_queue
         
         # State

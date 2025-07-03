@@ -1,10 +1,13 @@
 import yt_dlp
 import os
+import logging
 
 # Ensure the cache directory exists
 CACHE_DIR = "music_cache"
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
+
+logger = logging.getLogger("youtube_handler")
 
 def search_youtube(query, max_results=5):
     """Searches YouTube and returns a list of video details."""
@@ -18,7 +21,8 @@ def search_youtube(query, max_results=5):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             search_result = ydl.extract_info(query, download=False)
             return search_result.get('entries', [])
-    except Exception:
+    except Exception as e:
+        logger.error(f"YouTube search failed for query '{query}': {e}")
         return []
 
 def get_video_details(video_id):
@@ -29,7 +33,7 @@ def get_video_details(video_id):
             info = ydl.extract_info(f'http://www.youtube.com/watch?v={video_id}', download=False)
             return {'id': info.get('id'), 'title': info.get('title', 'Untitled Video')}
         except Exception as e:
-            print(f"Error fetching details for {video_id}: {e}")
+            logger.error(f"Error fetching details for {video_id}: {e}")
             return None
 
 def download_audio(video_id):
@@ -39,6 +43,7 @@ def download_audio(video_id):
     
     # If already cached, return the path immediately
     if os.path.exists(file_path):
+        logger.info(f"Using cached audio for {video_id}")
         return file_path
 
     ydl_opts = {
@@ -54,8 +59,10 @@ def download_audio(video_id):
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
+            logger.info(f"Downloading audio for {video_id}...")
             ydl.download([f'https://www.youtube.com/watch?v={video_id}'])
+            logger.info(f"Download complete for {video_id}")
             return file_path
         except Exception as e:
-            print(f"Error downloading {video_id}: {e}")
+            logger.error(f"Error downloading {video_id}: {e}")
             return None

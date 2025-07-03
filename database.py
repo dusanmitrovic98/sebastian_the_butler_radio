@@ -1,119 +1,96 @@
 import os
-import json
 import logging
-from typing import Any, Optional, List
+from pymongo import MongoClient, ReturnDocument, ASCENDING, DESCENDING
+from pymongo.errors import OperationFailure
+from bson.objectid import ObjectId
 
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import ReturnDocument, ASCENDING, DESCENDING
-from cryptography.fernet import Fernet
-
 load_dotenv()
 
-# Initialize logging
-logger = logging.getLogger("database")
+logger = logging.getLogger("database_sync")
 logger.setLevel(logging.INFO)
 
-class DataAccessLayer:
-    _instance = None
-    
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
-    
-    def __init__(self, db_name: Optional[str] = None):
-        if self._initialized: return
-        self._initialized = True
-        
+class SyncDataAccessLayer:
+    """A synchronous data access layer using pymongo for the Flask app."""
+    def __init__(self, db_name: str = None):
         self.mongo_uri = os.getenv("MONGO_URI")
         self.db_name = db_name or os.getenv("MONGO_DB_NAME")
         if not self.mongo_uri or not self.db_name:
             raise ValueError("MONGO_URI and MONGO_DB_NAME must be set in .env file")
 
-        self.client: Optional[AsyncIOMotorClient] = None
-        self.db = None
-        
-        key = os.getenv("ENCRYPTION_KEY")
-        if not key:
-            key = Fernet.generate_key().decode()
-            logger.warning("ENCRYPTION_KEY not found in .env. A temporary key has been generated.")
-            logger.warning(f"Set this in your .env file to avoid data loss on restart: ENCRYPTION_KEY={key}")
-        self.cipher = Fernet(key.encode())
+        self.client = MongoClient(self.mongo_uri)
+        self.db = self.client[self.db_name]
+        logger.info(f"Sync Database connection established (db: {self.db_name})")
+        self._initialize_indexes()
+
+    def _convert_id(self, doc):
+        """Converts a BSON ObjectId to a string."""
+        if doc and '_id' in doc:
+            doc['_id'] = str(doc['_id'])
+        return doc
     
-    async def connect(self):
-        if self.client is None:
-            self.client = AsyncIOMotorClient(self.mongo_uri)
-            self.db = self.client[self.db_name]
-            logger.info(f"Database connection established (db: {self.db_name})")
-            await self._initialize_indexes()
-    
-    async def close(self):
-        if self.client:
-            self.client.close()
-            self.client = None
-            logger.info("Database connection closed")
-            
-    async def find(self, collection: str, query: dict = {}, sort: Optional[list] = None, limit: int = 0) -> List[dict]:
-        await self.connect()
-        # A limit of 0 means no limit
+    def _query_with_str_id(self, query):
+        """Converts a string '_id' in a query to an ObjectId."""
+        if '_id' in query and isinstance(query['_id'], str):
+            try:
+                query['_id'] = ObjectId(query['_id'])
+            except:
+                pass 
+        return query
+
+    def find(self, collection: str, query: dict = {}, sort: list = None, limit: int = 0) -> list:
+        query = self._query_with_str_id(query)
         cursor = self.db[collection].find(query).limit(limit)
         if sort:
             cursor = cursor.sort(sort)
-        results = []
-        async for doc in cursor:
-            doc['_id'] = str(doc['_id'])
-            results.append(doc)
-        return results
+        return [self._convert_id(doc) for doc in cursor]
 
-    async def get(self, collection: str, query: dict) -> Optional[dict]:
-        await self.connect()
-        doc = await self.db[collection].find_one(query)
-        if doc:
-            doc['_id'] = str(doc['_id'])
-            return doc
-        return None
+    def get(self, collection: str, query: dict) -> dict | None:
+        query = self._query_with_str_id(query)
+        doc = self.db[collection].find_one(query)
+        return self._convert_id(doc)
 
-    async def create(self, collection: str, data: dict) -> str:
-        await self.connect()
-        result = await self.db[collection].insert_one(data)
+    def create(self, collection: str, data: dict) -> str:
+        result = self.db[collection].insert_one(data)
         return str(result.inserted_id)
 
-    async def update(self, collection: str, query: dict, update_data: dict, upsert: bool = False) -> Optional[dict]:
-        await self.connect()
-        result = await self.db[collection].find_one_and_update(
+    def update(self, collection: str, query: dict, update_data: dict, upsert: bool = False) -> dict | None:
+        query = self._query_with_str_id(query)
+        result = self.db[collection].find_one_and_update(
             query,
             update_data,
             upsert=upsert,
             return_document=ReturnDocument.AFTER
         )
-        if result:
-            result['_id'] = str(result['_id'])
-        return result
+        return self._convert_id(result)
 
-    async def delete_many(self, collection: str, query: dict) -> int:
-        await self.connect()
-        result = await self.db[collection].delete_many(query)
+    def delete_many(self, collection: str, query: dict) -> int:
+        query = self._query_with_str_id(query)
+        result = self.db[collection].delete_many(query)
         return result.deleted_count
 
-    async def replace_collection(self, collection: str, data: list):
-        await self.connect()
-        # This is a transactional operation for atomic replacement
-        async with await self.client.start_session() as s:
-            async with s.start_transaction():
-                await self.db[collection].delete_many({}, session=s)
-                if data:
-                    await self.db[collection].insert_many(data, session=s)
+    def replace_collection(self, collection: str, data: list):
+        self.db[collection].delete_many({})
+        if data:
+            self.db[collection].insert_many(data)
 
-    async def _initialize_indexes(self):
+    def _initialize_indexes(self):
+        """Creates indexes and safely ignores errors if they already exist."""
         try:
-            await self.db.users.create_index("username", unique=True)
-            await self.db.suggestions.create_index([("votes", DESCENDING)])
-            await self.db.suggestions.create_index("yt_id", unique=True, sparse=True)
-            await self.db.playlist.create_index("order")
-            logger.info("Database indexes checked/initialized.")
+            self.db.users.create_index("username", unique=True)
+            self.db.suggestions.create_index([("votes", DESCENDING)])
+            self.db.suggestions.create_index("yt_id", unique=True, sparse=True)
+            self.db.playlist.create_index("order")
+            logger.info("Sync database indexes checked/initialized.")
+        except OperationFailure as e:
+            # Error codes 85 (IndexOptionsConflict) and 86 (IndexKeySpecsConflict) mean
+            # an index with the same name but different options already exists.
+            if e.code in [85, 86]:
+                logger.warning(f"Could not create index, it likely already exists with different options: {e.details['errmsg']}")
+            else:
+                logger.error(f"Sync Index initialization failed: {e}")
         except Exception as e:
-            logger.error(f"Index initialization failed: {e}")
+            logger.error(f"An unexpected error occurred during sync index initialization: {e}")
 
-db = DataAccessLayer()
+# Global instance for the Flask App to use
+db = SyncDataAccessLayer()
